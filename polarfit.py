@@ -3,6 +3,13 @@
 #Analysis of daily temperature logs from weather stations and sea ice extent logs
 #data extraction, analysis and plotting
 
+#uses the following folder structure:
+#place weather source data in "source_data_weather_stations"  folder
+#place ice area source data in "source_ice" folder
+#create the following folders for intermediare data:
+#"p2fit", "r2 2yr", "r2 year", "r2 half", "r2 mth", "r2 raw"
+#output data folders are generated automatically
+
 import os
 import sys
 import numpy as np

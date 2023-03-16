@@ -21,6 +21,7 @@ import time
 from scipy import optimize
 import requests
 from bs4 import BeautifulSoup
+from numba import jit, njit
 
 #WMO numbers of polar meteo stations
 Blashyrkh = [20107, 20087, 20069, 20046, 20292, 21432, 20891, 20674, 24266, 24688, 25051, 25282, 21982, 26063, 22113, 27612, 21824, 23226, 24959, 25563, 21946, 25248, 'ice']
@@ -32,6 +33,7 @@ sm_types = ['2yr', 'year', 'half', 'mth', 'raw'] #half-widths of smoothing windo
 
 #===== calendar
 
+#@jit(nopython=True)
 def isleap(yr): #OK #https://astroconverter.com/utcmjd.html to check
  is_leap = False
  nlc = (100, 200, 300)
@@ -40,10 +42,12 @@ def isleap(yr): #OK #https://astroconverter.com/utcmjd.html to check
  return is_leap
 
 #conversion between Modified Julian Day and year float value
+#@jit(nopython=True)
 def mjd_to_yr_s(d):
  yr = d/365.25 + 1858.87
  return yr
 
+#@jit(nopython=True)
 def mjd_to_yr(t_list):
  t_list_1 = t_list
  for i in range(len(t_list)):
@@ -52,16 +56,20 @@ def mjd_to_yr(t_list):
  return t_list_1 
 
 #conversion of month-and-day values to day number (1 - 366) 
+#@jit(nopython=True)
 def md_to_daynum(m, d):
  return d + sum(m_lengths[:m-1])  
 
 #===== math simple
 
 #average of a list
-def avg(lst):
+#@jit(nopython=True)
+def avg(lst_1):
+ lst = tuple(lst_1)
  return sum(lst)/len(lst)
 
 #returns (root square deviation, average) of a list
+#@jit(nopython=True)
 def rsd(val_list): 
  sum_sqr = 0
  sigma = 0
@@ -72,6 +80,7 @@ def rsd(val_list):
  return sigma, avg
  
 #calculates sum of squared deviations between data and linear model y = k*x+b
+#@jit(nopython=True)
 def sq_res(data_in, fit):
  ord_0 = fit[0][1] #b
  ord_1 = fit[0][0] #k
@@ -125,6 +134,7 @@ def t_to_rgb(t_in):
 # takes piece-wise model in form [[x_start_1, slope_1, intercept_1, x_end_1], [x_start_2, ... ]]
 #as returned by fitting functions (see below)
 #returns also calculated values according to model
+#@jit(nopython=True)
 def r_sqr(data_in, model):
  simple_avg = avg([d[1] for d in data_in])
  splines = len(model)
@@ -286,6 +296,7 @@ def data_prepare(filename): #OK
 #calculates running window averaged values for simple XY table data
 #calculated window centered on current data point, by x-value and half-width
 #while iterating over data points, adds and deletes data points from current window by x-vals
+#@jit(nopython=True)
 def smoother(tbl_in, hw, deg): 
  halfwidth = hw #hw by x-coord, mind units!
  #tbl_in = list(zip(xvals, yvals))
@@ -332,6 +343,7 @@ def smoother(tbl_in, hw, deg):
  return smoothie	 
 
 #made separately to achieve continuous smoothing around new year
+#@jit(nopython=True)
 def smoother_t_stats(tbl_in, hw, deg, *n_iter): 
  tbl_before = [[x[0]-366, x[1]] for x in tbl_in[365-hw:]]
  tbl_after = [[x[0]+366, x[1]] for x in tbl_in[:hw]]
@@ -561,18 +573,19 @@ def time_log(loc, **f_type):
  smtype = smooth_type(sm_type)
  if 'anom_logs' in os.listdir() and 'read' in f_type.keys() and f_type['read'] == True: #read csv
   os.chdir('anom_logs')
-  tlog = []
+  tlog_in = []
   log_name = str(loc) + '_anom_log_0.08_0.5_1_2.csv'
   if log_name in os.listdir():
-   tlog = []
+   tlog_in = []
    with open(log_name, 'r') as csv:
     lines = csv.readlines()
     for i in range(2, len(lines)): #data from line 3
      newstr = lines[i].split('\t')
      date_cur = float(newstr[0]) #years fractional
      val_cur = float(newstr[smtype])  
-     tlog.append([date_cur, val_cur])
+     tlog_in.append([date_cur, val_cur])   
    os.chdir('..')
+  tlog = [x for x in tlog_in if x[0] > l_cut]
  else:  #calculate from source data   
   if loc == 'ice':
    t_an = anom_ice('ice_data.csv', 1981, 1994)
@@ -646,6 +659,7 @@ def piece3fit_scipy(data_in, **f_type): #uses scipy #model: breakpoint left, slo
 #assumes linear trends before and after transition
 #converges to global optimum three-piece-wise fit if BPs are right and middle is not very different from a line
 #if yr_break_1 == yr_break_2, converges to two-piece-wise fit with vertical step at breakpoint
+#@jit(nopython=True)
 def piece3fit(data_in, yr_break_1, yr_break_2): 
  data_1 = [x for x in data_in if x[0] < yr_break_1]
  data_2 = [x for x in data_in if (x[0] > yr_break_1 and x[0] < yr_break_2)]
@@ -905,7 +919,7 @@ def fit_compare_simple(loc, sm_type, **f_type):
 
  smtype = smooth_type(sm_type)
 
- t_log = time_log(loc, **{'read': True, 'sm_type': sm_type, 'l_cut': 1963})
+ t_log = time_log(loc, **{'read': True, 'sm_type': sm_type, 'l_cut': 1965})
 
 #---r2_matrix of 3pc-wise fit
  if 'trunc_3' in f_type.keys(): 
@@ -989,15 +1003,22 @@ def fit_compare_simple(loc, sm_type, **f_type):
   os.chdir(dir_name)
   img_name = 'fits_' + ('_' if loc == 'ice' else '') + str(loc) + '_' + ('_' if sm_type == 'year' else '') + sm_type + suffix
   plt.gcf().set_size_inches(13, 6)
-  plt.savefig(img_name, dpi=200)
+  plt.savefig(img_name, dpi=200)  
   os.chdir('..')
+  dir_name = 'pics_fitcompare_all'
+  if dir_name not in os.listdir():
+   os.mkdir(dir_name)
+  os.chdir(dir_name)
+  plt.savefig(img_name, dpi=200)  
+  os.chdir('..')
+
  
  if 'plot' in f_type.keys() and f_type['plot'] == True: 
   plt.ion()
   plt.show()
  else:
   plt.close()
- return {'r_corr_1': r_corr_1, 'model_1': model_lin, 'data_calc_1': data_calc_1, 'r_corr_2': r_corr_2, 'model_2': best_fit_2, 'data_calc_2': data_calc_2, 'r_corr_3': r_corr_3, 'model_3': best_fit_3, 'data_calc_3': data_calc_3}
+ return {'r_corr_1': r_corr_1, 'model_1': model_lin, 'data_calc_1': data_calc_1, 'r_corr_2': r_corr_2, 'model_2': best_fit_2, 'data_calc_2': data_calc_2, 'r_corr_3': r_corr_3, 'model_3': best_fit_3, 'data_calc_3': data_calc_3, 'data_in': t_log}
 
 #makes a color-coded diagram of r2 matrix for 3pc-wise fit
 #loads matrix with r2_load function
@@ -1146,7 +1167,9 @@ def climatogram(loc, yr_start, yr_end, **f_type):
  ax2.plot([x[0]+1 for x in avg_pr], [x[1] for x in avg_pr], linewidth=3, color='#b0d0ff')
  ax2.plot([x[0]+1 for x in av_rsd], [x[1] for x in av_rsd], linewidth=3, linestyle='dashed', color='#80b080')
  #ax2.plot([x[0] for x in pr_rsd], [x[1] for x in pr_rsd], linewidth=1, color='#ffffff')
- title_string = str(loc) + ' ' + loc_name + ' climatogram base ' + str(yr_start) + ' - ' + str(yr_end)
+ title_string_1 = str(loc) + ' ' + loc_name + ' climatogram base ' + str(yr_start) + ' - ' + str(yr_end) + '\n'
+ title_string_2 = "halfwidth: " + str(halfwidth) + ' poly: ' + str(poly) + ' n_iter: ' + str(n_iter)
+ title_string = title_string_1 + title_string_2
  plt.title(title_string)
  plt.xlim(1, 366)
  ax1.set_ylim(ylims1)

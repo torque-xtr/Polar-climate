@@ -120,11 +120,18 @@ for yr_start in range(1963, 2014): #tested OK
  climatogram(27612, yr_start, yr_start+10, **{'hw': 10, 't_scale': (-40, 40), 'rsd_scale': (0, 8), 'save': True})
 
 #---rows
-for loc in Blashyrkh: #tested OK
- for yr_start in range(1963, 2014):
-  climatogram(20087, yr_start, yr_start+10, **{'hw': 10, 't_scale': (-50, 15), 'rsd_scale': (0, 9), 'save': True, 'dpi':200})
+#{'hw': 10, 't_scale': (-50, 15), 'rsd_scale': (0, 9), 'save': True, 'dpi':200})
+f_type_cl = {'t_scale': (-50, 10), 'rsd_scale': (0, 10), 'dpi':200, 'n_iter': 2, 'poly': 3, 'hw': 30, 'save': True} 
+f_type_cl_2 = {'t_scale': (-45, 40), 'rsd_scale': (0, 8), 'dpi':200, 'n_iter': 2, 'poly': 3, 'hw': 30, 'save': True} 
+for loc in [27612,]:# Blashyrkh: #tested OK
+ yr_st = data_prepare(str(loc) + '.csv')[0][1] + 1
+ for yr_start in range(yr_st, 2014):
+  climatogram(loc, yr_start, yr_start+10, **f_type_cl_2)
 
+#simple window:
 climatogram(27612, 2007, 2023, **{'hw': 10, 't_scale': (-35, 45), 'rsd_scale': (0, 7.5), 'save': True, 'dpi':400})
+#cubic approx window: n_iter: 2, halfwidth: 25 - 35.
+climatogram(27612, 2007, 2023, **{'t_scale': (-35, 40), 'rsd_scale': (0, 8), 'dpi':400, 'n_iter': 2, 'poly': 3, 'hw': 25, 'save': True})
 
 #---anomaly plots
 
@@ -164,7 +171,7 @@ for loc in [24266, 24688, 24959]:
  plt_anom = anom_plot(loc, **f_type, **{'img_prefix': 'step_Sib', 'save': True}) 
 
 #--interactives
-plt_anom = anom_plot('ice', **{'sm_type': 'raw mth half yr', 'save': False, 'plot': True})
+plt_anom = anom_plot('ice', **{'sm_type': 'raw mth half year', 'save': False, 'plot': True})
 
 #steps using y-axis offsets
 plt.clf()
@@ -199,6 +206,9 @@ for loc in Blashyrkh: # [20107, 21824, 23226, 24959, 25563, 21946, 25248]:
   print(loc, smt, time.time() - t_0)
    
 #truncated r_matrices
+quit()
+python
+from polarfit import *
 t_0 = time.time()
 f_type_fcs = {'plot': False, 'save': True, 'r2 plot': False, 'trunc_2': (lambda x: x < 2021 and x > 1975), 'suffix': 'inter'}
 for loc in Blashyrkh: 
@@ -209,7 +219,7 @@ for loc in Blashyrkh:
 #step search:
 
 t_0 = time.time()
-f_type_fcs = {'plot': False, 'save': True, 'r2 plot': False, 'trunc_2': (lambda x: x < 2021 and x > 1975), 'suffix': 'inter'}
+f_type_fcs = {'plot': False, 'save': True, 'r2 plot': False, 'trunc_2': (lambda x: x < 2021 and x > 1975), 'suffix': 'step'}
 for loc in [20046, 20069, 20087, 20107, 20292, 'ice']: 
  for smt in sm_types:
   out_data = fit_compare_simple(loc, smt, **f_type_fcs, **{'trunc_3': (lambda x, y: x > 1995 and x < 2010 and y < x + 2 and y < 2017)})
@@ -275,4 +285,30 @@ for loc in Blashyrkh:
 #---manual_fit:
 
 #loc: i.e. 20069 for Wiese island or 'ice' for ice extent
-model_3 = manual_fit(loc, **{'sm_type': 'half', 'l_cut': 1965})
+model_3 = manual_fit(20087, **{'sm_type': 'year', 'l_cut': 1965})
+
+#---arctic oscillation index
+
+arctic_osc = []
+with open('AO_index.txt', 'r') as csv:
+ lines = csv.readlines()
+ for i in range(len(lines)):
+  newstring = lines[i].split(' ')
+  newstr = [x for x in newstring if x != '' and x != '\n']
+  yr = int(newstr[0]) + int(newstr[1])/12
+  aoi = float(newstr[2])
+  arctic_osc.append([yr, aoi])
+ 
+
+ao_sm1 = smoother(arctic_osc, 0.5, 0)
+ao_sm2 = smoother(arctic_osc, 1, 0)
+ao_sm3 = smoother(arctic_osc, 2, 0)
+plt.ion()
+plt.draw()
+plt.clf()
+plt.plot([x[0] for x in arctic_osc], [x[1] for x in arctic_osc], color='cyan')
+plt.plot([x[0] for x in ao_sm1], [x[1] for x in ao_sm1], color='blue')
+plt.plot([x[0] for x in ao_sm2], [x[1] for x in ao_sm2], color='green')
+plt.plot([x[0] for x in ao_sm3], [x[1] for x in ao_sm3], color='red')
+plt.grid(True)
+

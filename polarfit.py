@@ -1174,6 +1174,8 @@ def climatogram(loc, yr_start, yr_end, **f_type):
  plt.xlim(1, 366)
  ax1.set_ylim(ylims1)
  ax2.set_ylim(ylims2)
+ t_ticks = [ylims1[0] + i * 10 for i in range( int((ylims1[1] - ylims1[0]) / 10) + 1)]
+ ax1.set_yticks(t_ticks)
  ax1.grid(visible=True, which='both', axis='y')
  d0 = 1
  for i in range(len(m_lengths)):

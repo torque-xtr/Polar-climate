@@ -119,6 +119,28 @@ for loc in Blashyrkh:
 for yr_start in range(1963, 2014): #tested OK
  climatogram(27612, yr_start, yr_start+10, **{'hw': 10, 't_scale': (-40, 40), 'rsd_scale': (0, 8), 'save': True})
 
+
+sm_t = {'hw': 30, 'poly': 3, 'n_iter': 2, 'save': True}
+for loc in Blashyrkh: #tested OK
+ if loc == 'ice':
+  continue
+ loc_src = str(loc) + '.csv'
+ t_stats_1, t_log_1 = daily_vals_all(loc_src, 1965, 1981) 
+ t_stats_2, t_log_2 = daily_vals_all(loc_src, 2007, 2023) 
+ max_t_1, min_t_1 = max([x[2][6] for x in t_stats_1]), min([x[0][4] for x in t_stats_1])
+ max_t_2, min_t_2 = max([x[2][6] for x in t_stats_2]), min([x[0][4] for x in t_stats_2])
+ avg_pr_1 = smoother_t_stats([[x[3][0], x[3][3]] for x in t_stats_1], sm_t['hw'], sm_t['poly'], sm_t['n_iter'])
+ av_rsd_1 = smoother_t_stats([[x[1][0], x[1][8]] for x in t_stats_1], sm_t['hw'], sm_t['poly'], sm_t['n_iter'])
+ avg_pr_2 = smoother_t_stats([[x[3][0], x[3][3]] for x in t_stats_2], sm_t['hw'], sm_t['poly'], sm_t['n_iter'])
+ av_rsd_2 = smoother_t_stats([[x[1][0], x[1][8]] for x in t_stats_2], sm_t['hw'], sm_t['poly'], sm_t['n_iter'])
+ t_scl = ( 10 * (min(min_t_1, min_t_2) // 10) , 10 * (max(max_t_1, max_t_2) // 10 + 1) )
+ rsd_scl_1 = 1.2 * max(max([x[1] for x in avg_pr_1]), max([x[1] for x in av_rsd_1]) ) 
+ rsd_scl_2 = 1.2 * max(max([x[1] for x in avg_pr_2]), max([x[1] for x in av_rsd_2]) )
+ rsd_scl = (0, max(rsd_scl_1, rsd_scl_2) // 1 + 1) 
+ climatogram(loc, 1965, 1981, **sm_t, **{'t_scale': t_scl, 'rsd_scale': rsd_scl})
+ climatogram(loc, 2007, 2023, **sm_t, **{'t_scale': t_scl, 'rsd_scale': rsd_scl})
+
+
 #---rows
 #{'hw': 10, 't_scale': (-50, 15), 'rsd_scale': (0, 9), 'save': True, 'dpi':200})
 f_type_cl = {'t_scale': (-50, 10), 'rsd_scale': (0, 10), 'dpi':200, 'n_iter': 2, 'poly': 3, 'hw': 30, 'save': True} 
